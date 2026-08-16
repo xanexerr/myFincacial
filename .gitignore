@@ -22,3 +22,7 @@ finance_app/android/app/release/
 .vscode/
 Thumbs.db
 .DS_Store
+
+# Local project notes and Android emulator diagnostics
+finaceapp.md
+finance_app/bugreport-*.zip

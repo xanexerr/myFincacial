@@ -4,50 +4,36 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-const currency = 'บาท';
+const currency = 'THB';
 const filesChannel = MethodChannel('com.xan.personal_finance/files');
+const defaultBudgets = <String, double>{};
+const legacyCategoryNames = <String, String>{
+  'ค่าเช่า': 'Rent',
+  'ค่าน้ำไฟ+เน็ต': 'Utilities & Internet',
+  'ค่าอาหาร': 'Food',
+  'ค่าน้ำมัน': 'Fuel',
+  'โทรศัพท์': 'Phone',
+  'ผ่อนมือถือ': 'Phone installment',
+  'ผ่อนกีตาร์': 'Guitar installment',
+  'ท่องเที่ยว': 'Travel',
+  'ซ่อมรถ': 'Car maintenance',
+  'Codex (จ่ายเอง)': 'Codex (self-paid)',
+  'ค่าเทอมที่จ่ายเอง': 'Tuition (self-paid)',
+  'อื่น ๆ': 'Other',
+  'เงินจากพ่อ': 'Allowance from father',
+  'รายรับอื่น': 'Other income',
+};
 
-const expenseCategories = <String>[
-  'ค่าเช่า',
-  'ค่าน้ำไฟ+เน็ต',
-  'ค่าอาหาร',
-  'ค่าน้ำมัน',
-  'โทรศัพท์',
-  'ผ่อนมือถือ',
-  'ผ่อนกีตาร์',
-  'ท่องเที่ยว',
-  'ซ่อมรถ',
-  'Codex (จ่ายเอง)',
-  'YouTube Music',
-  'ค่าเทอมที่จ่ายเอง',
-  'อื่น ๆ',
-];
-const incomeCategories = <String>['เงินจากพ่อ', 'รายรับอื่น'];
-const defaultBudgets = <String, double>{
-  'ค่าเช่า': 0,
-  'ค่าน้ำไฟ+เน็ต': 0,
-  'ค่าอาหาร': 0,
-  'ค่าน้ำมัน': 0,
-  'โทรศัพท์': 0,
-  'ผ่อนมือถือ': 0,
-  'ผ่อนกีตาร์': 0,
-  'ท่องเที่ยว': 0,
-  'ซ่อมรถ': 0,
-  'Codex (จ่ายเอง)': 0,
-  'YouTube Music': 0,
-  'ค่าเทอมที่จ่ายเอง': 0,
-  'อื่น ๆ': 0,
-};
-const essentialCategories = <String>{
-  'ค่าเช่า',
-  'ค่าน้ำไฟ+เน็ต',
-  'ค่าอาหาร',
-  'ค่าน้ำมัน',
-  'โทรศัพท์',
-  'ผ่อนมือถือ',
-  'ผ่อนกีตาร์',
-  'ซ่อมรถ',
-};
+String migrateCategoryName(String name) => legacyCategoryNames[name] ?? name;
+
+Map<String, double> migrateBudgets(Map<String, dynamic> source) {
+  final result = <String, double>{};
+  for (final entry in source.entries) {
+    final name = migrateCategoryName(entry.key);
+    result[name] = (result[name] ?? 0) + (entry.value as num).toDouble();
+  }
+  return result;
+}
 
 enum EntryType { income, expense }
 
@@ -81,7 +67,7 @@ class FinanceEntry {
     id: json['id'] as String,
     date: DateTime.parse(json['date'] as String),
     type: json['type'] == 'income' ? EntryType.income : EntryType.expense,
-    category: json['category'] as String,
+    category: migrateCategoryName(json['category'] as String),
     amount: (json['amount'] as num).toDouble(),
     note: (json['note'] as String?) ?? '',
   );
@@ -187,7 +173,9 @@ class Debt {
 class FinanceStore extends ChangeNotifier {
   final List<FinanceEntry> entries = [];
   final List<Debt> debts = [];
-  Map<String, double> budgets = Map<String, double>.from(defaultBudgets);
+  Map<String, double> budgets = {};
+  List<String> expenseCategories = [];
+  List<String> incomeCategories = [];
   double currentSavings = 0;
 
   static const _filePath =
@@ -236,13 +224,28 @@ class FinanceStore extends ChangeNotifier {
       if (savedDebts == null) debts.addAll(defaultDebts());
       final savedBudgets = data['budgets'] as Map<String, dynamic>?;
       if (savedBudgets != null) {
-        budgets = savedBudgets.map(
-          (key, value) => MapEntry(key, (value as num).toDouble()),
-        );
+        budgets = migrateBudgets(savedBudgets);
       }
+      expenseCategories =
+          List<String>.from(
+            (data['expenseCategories'] as List<dynamic>?) ?? const [],
+          ).map(migrateCategoryName).toSet().toList();
+      incomeCategories =
+          List<String>.from(
+            (data['incomeCategories'] as List<dynamic>?) ?? const [],
+          ).map(migrateCategoryName).toSet().toList();
       currentSavings = (data['currentSavings'] as num?)?.toDouble() ?? 0;
     } catch (_) {
       if (debts.isEmpty) debts.addAll(defaultDebts());
+    }
+    // Categories are user-owned. Existing legacy data remains usable by
+    // deriving categories from entries, without restoring hard-coded defaults.
+    for (final entry in entries) {
+      final list =
+          entry.type == EntryType.expense
+              ? expenseCategories
+              : incomeCategories;
+      if (!list.contains(entry.category)) list.add(entry.category);
     }
   }
 
@@ -250,6 +253,8 @@ class FinanceStore extends ChangeNotifier {
     'entries': entries.map((entry) => entry.toJson()).toList(),
     'debts': debts.map((debt) => debt.toJson()).toList(),
     'budgets': budgets,
+    'expenseCategories': expenseCategories,
+    'incomeCategories': incomeCategories,
     'currentSavings': currentSavings,
   };
 
@@ -272,6 +277,41 @@ class FinanceStore extends ChangeNotifier {
 
   Future<void> updateSavings(double value) async {
     currentSavings = value;
+    await save();
+    notifyListeners();
+  }
+
+  Future<void> addCategory(EntryType type, String name) async {
+    final list =
+        type == EntryType.expense ? expenseCategories : incomeCategories;
+    if (name.trim().isEmpty || list.contains(name.trim())) return;
+    list.add(name.trim());
+    await save();
+    notifyListeners();
+  }
+
+  Future<void> removeBudget(String category) async {
+    budgets.remove(category);
+    await save();
+    notifyListeners();
+  }
+
+  Future<void> setBudget(String category, double amount) async {
+    budgets[category] = amount;
+    await save();
+    notifyListeners();
+  }
+
+  Future<void> saveBudget({
+    String? previousName,
+    required String name,
+    required double amount,
+  }) async {
+    final normalized = name.trim();
+    if (previousName != null && previousName != normalized) {
+      budgets.remove(previousName);
+    }
+    budgets[normalized] = amount;
     await save();
     notifyListeners();
   }
@@ -358,8 +398,17 @@ class FinanceStore extends ChangeNotifier {
             (item) => Debt.fromJson(item as Map<String, dynamic>),
           ),
         );
-      budgets = ((data['budgets'] as Map<String, dynamic>?) ?? defaultBudgets)
-          .map((key, value) => MapEntry(key, (value as num).toDouble()));
+      budgets = migrateBudgets(
+        (data['budgets'] as Map<String, dynamic>?) ?? defaultBudgets,
+      );
+      expenseCategories =
+          List<String>.from(
+            (data['expenseCategories'] as List<dynamic>?) ?? const [],
+          ).map(migrateCategoryName).toSet().toList();
+      incomeCategories =
+          List<String>.from(
+            (data['incomeCategories'] as List<dynamic>?) ?? const [],
+          ).map(migrateCategoryName).toSet().toList();
       currentSavings = (data['currentSavings'] as num?)?.toDouble() ?? 0;
       await save();
       notifyListeners();
@@ -385,9 +434,7 @@ class FinanceStore extends ChangeNotifier {
 
   double get monthlyBudget =>
       budgets.values.fold(0, (sum, value) => sum + value);
-  double get essentialBudget => budgets.entries
-      .where((entry) => essentialCategories.contains(entry.key))
-      .fold(0, (sum, entry) => sum + entry.value);
+  double get essentialBudget => monthlyBudget;
 }
 
 List<Debt> defaultDebts() {
@@ -410,6 +457,7 @@ class FinanceApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     title: 'Xan Finance',
+    locale: const Locale('en', 'US'),
     theme: ThemeData(
       colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff176b87)),
       useMaterial3: true,
@@ -432,14 +480,15 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int tab = 0;
-  String get title => ['ภาพรวม', 'รายการ', 'แผนการเงิน', 'ตั้งค่า'][tab];
+  String get title =>
+      ['Overview', 'Transactions', 'Financial Plan', 'Settings'][tab];
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.store,
     builder:
         (context, _) => Scaffold(
-          appBar: AppBar(title: Text('Xan Finance · $title')),
+          appBar: AppBar(title: Text('$title')),
           body: IndexedStack(
             index: tab,
             children: [
@@ -460,7 +509,7 @@ class _AppShellState extends State<AppShell> {
                           ),
                         ),
                     icon: const Icon(Icons.add),
-                    label: const Text('เพิ่มรายการ'),
+                    label: const Text('Add transaction'),
                   )
                   : null,
           bottomNavigationBar: NavigationBar(
@@ -470,22 +519,22 @@ class _AppShellState extends State<AppShell> {
               NavigationDestination(
                 icon: Icon(Icons.home_outlined),
                 selectedIcon: Icon(Icons.home),
-                label: 'ภาพรวม',
+                label: 'Overview',
               ),
               NavigationDestination(
                 icon: Icon(Icons.receipt_long_outlined),
                 selectedIcon: Icon(Icons.receipt_long),
-                label: 'รายการ',
+                label: 'Transactions',
               ),
               NavigationDestination(
                 icon: Icon(Icons.track_changes_outlined),
                 selectedIcon: Icon(Icons.track_changes),
-                label: 'แผน',
+                label: 'Plan',
               ),
               NavigationDestination(
                 icon: Icon(Icons.settings_outlined),
                 selectedIcon: Icon(Icons.settings),
-                label: 'ตั้งค่า',
+                label: 'Settings',
               ),
             ],
           ),
@@ -569,17 +618,17 @@ class _DashboardPageState extends State<DashboardPage> {
             : net;
     final selectedLabel =
         filter == DashboardFilter.income
-            ? 'รายรับที่เลือก'
+            ? 'Selected income'
             : filter == DashboardFilter.expense
-            ? 'รายจ่ายที่เลือก'
-            : 'เงินเหลือ/ขาด';
+            ? 'Selected expenses'
+            : 'Net balance';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       children: [
         PeriodPicker(
           period: period,
-          label: periodLabel(currentRange),
+          label: periodLabel(period, currentRange),
           onPrevious: () => move(-1),
           onNext: () => move(1),
         ),
@@ -589,19 +638,19 @@ class _DashboardPageState extends State<DashboardPage> {
             Expanded(
               child: DropdownButtonFormField<DashboardPeriod>(
                 initialValue: period,
-                decoration: const InputDecoration(labelText: 'ช่วงเวลา'),
+                decoration: const InputDecoration(labelText: 'Period'),
                 items: const [
                   DropdownMenuItem(
                     value: DashboardPeriod.week,
-                    child: Text('สัปดาห์'),
+                    child: Text('Week'),
                   ),
                   DropdownMenuItem(
                     value: DashboardPeriod.month,
-                    child: Text('เดือน'),
+                    child: Text('Month'),
                   ),
                   DropdownMenuItem(
                     value: DashboardPeriod.year,
-                    child: Text('ปี'),
+                    child: Text('Year'),
                   ),
                 ],
                 onChanged:
@@ -614,19 +663,19 @@ class _DashboardPageState extends State<DashboardPage> {
             Expanded(
               child: DropdownButtonFormField<DashboardFilter>(
                 initialValue: filter,
-                decoration: const InputDecoration(labelText: 'ประเภท'),
+                decoration: const InputDecoration(labelText: 'Type'),
                 items: const [
                   DropdownMenuItem(
                     value: DashboardFilter.all,
-                    child: Text('ทั้งหมด'),
+                    child: Text('All'),
                   ),
                   DropdownMenuItem(
                     value: DashboardFilter.income,
-                    child: Text('รายรับ'),
+                    child: Text('Income'),
                   ),
                   DropdownMenuItem(
                     value: DashboardFilter.expense,
-                    child: Text('รายจ่าย'),
+                    child: Text('Expense'),
                   ),
                 ],
                 onChanged:
@@ -642,7 +691,7 @@ class _DashboardPageState extends State<DashboardPage> {
           children: [
             Expanded(
               child: SummaryCard(
-                label: 'รายรับ',
+                label: 'Income',
                 value: income,
                 color: Colors.green,
                 icon: Icons.arrow_downward,
@@ -651,7 +700,7 @@ class _DashboardPageState extends State<DashboardPage> {
             const SizedBox(width: 10),
             Expanded(
               child: SummaryCard(
-                label: 'รายจ่าย',
+                label: 'Expenses',
                 value: expense,
                 color: Colors.red,
                 icon: Icons.arrow_upward,
@@ -667,7 +716,7 @@ class _DashboardPageState extends State<DashboardPage> {
               color: net >= 0 ? Colors.green : Colors.red,
             ),
             title: Text(selectedLabel),
-            subtitle: Text('${entries.length} รายการ'),
+            subtitle: Text('${entries.length} transactions'),
             trailing: Text(
               formatMoney(selectedTotal),
               style: TextStyle(
@@ -678,7 +727,7 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
         const SizedBox(height: 14),
-        const SectionTitle(title: 'สรุปตามหมวดหมู่'),
+        const SectionTitle(title: 'Category summary'),
         ...categorySummary(entries).map(
           (item) => BudgetProgress(
             label: item.key,
@@ -687,9 +736,9 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
         const SizedBox(height: 10),
-        const SectionTitle(title: 'รายการล่าสุด'),
+        const SectionTitle(title: 'Recent transactions'),
         if (entries.isEmpty)
-          const EmptyState(text: 'ยังไม่มีรายการในช่วงนี้')
+          const EmptyState(text: 'No transactions in this period')
         else
           ...entries.take(8).map((entry) => EntryTile(entry: entry)),
       ],
@@ -712,12 +761,12 @@ class EntriesPage extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       children: [
         Text(
-          'รายการเดือน ${monthLabel(now)}',
+          'Transactions · ${monthLabel(now)}',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 8),
         if (entries.isEmpty)
-          const EmptyState(text: 'ยังไม่มีรายการเดือนนี้')
+          const EmptyState(text: 'No transactions this month')
         else
           ...entries.map(
             (entry) => Dismissible(
@@ -750,7 +799,7 @@ class PlansPage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       children: [
-        const SectionTitle(title: 'เงินสำรองฉุกเฉิน'),
+        const SectionTitle(title: 'Emergency fund'),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -758,24 +807,24 @@ class PlansPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'เงินเก็บปัจจุบัน  ${formatMoney(store.currentSavings)}',
+                  'Current savings  ${formatMoney(store.currentSavings)}',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
-                Text('รายจ่ายจำเป็น ${formatMoney(essential)}/เดือน'),
+                Text('Planned expenses ${formatMoney(essential)}/month'),
                 const SizedBox(height: 12),
                 ReserveRow(
-                  label: 'กันชนแรก',
+                  label: 'Starter buffer',
                   target: 10000,
                   current: store.currentSavings,
                 ),
                 ReserveRow(
-                  label: 'สำรอง 6 เดือน',
+                  label: '6-month reserve',
                   target: essential * 6,
                   current: store.currentSavings,
                 ),
                 ReserveRow(
-                  label: 'สำรอง 12 เดือน',
+                  label: '12-month reserve',
                   target: essential * 12,
                   current: store.currentSavings,
                 ),
@@ -787,7 +836,7 @@ class PlansPage extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const SectionTitle(title: 'หนี้สินที่กำลังผ่อน'),
+            const SectionTitle(title: 'Active debts'),
             FilledButton.icon(
               onPressed:
                   () => Navigator.push(
@@ -797,33 +846,173 @@ class PlansPage extends StatelessWidget {
                     ),
                   ),
               icon: const Icon(Icons.add),
-              label: const Text('เพิ่มหนี้'),
+              label: const Text('Add debt'),
             ),
           ],
         ),
         if (active.isEmpty)
-          const EmptyState(text: 'ยังไม่มีหนี้ที่กำลังผ่อน')
+          const EmptyState(text: 'No active debts')
         else
           ...active.map((debt) => DebtTile(debt: debt, store: store)),
         const SizedBox(height: 12),
-        const SectionTitle(title: 'หนี้ที่จ่ายหมดแล้ว'),
+        const SectionTitle(title: 'Paid-off debts'),
         if (archived.isEmpty)
-          const EmptyState(text: 'ยังไม่มีรายการที่จ่ายหมด')
+          const EmptyState(text: 'No paid-off debts')
         else
           ...archived.map(
             (debt) => DebtTile(debt: debt, store: store, archived: true),
           ),
         const SizedBox(height: 12),
-        const SectionTitle(title: 'งบประมาณที่ตั้งไว้'),
-        ...store.budgets.entries.map(
-          (item) => ListTile(
-            dense: true,
-            title: Text(item.key),
-            trailing: Text(formatMoney(item.value)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const SectionTitle(title: 'Budgets'),
+            FilledButton.icon(
+              onPressed: () => editBudget(context),
+              icon: const Icon(Icons.add),
+              label: const Text('Add budget'),
+            ),
+          ],
+        ),
+        if (store.budgets.isEmpty)
+          const EmptyState(text: 'No budgets yet')
+        else
+          ...store.budgets.entries.map(
+            (item) => Card(
+              child: ListTile(
+                onTap: () => editBudget(context, item),
+                leading: const Icon(Icons.account_balance_wallet_outlined),
+                title: Text(item.key),
+                subtitle: Text('${formatMoney(item.value)} / month'),
+                trailing: PopupMenuButton<String>(
+                  onSelected: (action) {
+                    if (action == 'edit') {
+                      editBudget(context, item);
+                    } else {
+                      deleteBudget(context, item.key);
+                    }
+                  },
+                  itemBuilder:
+                      (_) => const [
+                        PopupMenuItem(value: 'edit', child: Text('Edit')),
+                        PopupMenuItem(value: 'delete', child: Text('Delete')),
+                      ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> editBudget(
+    BuildContext context, [
+    MapEntry<String, double>? existing,
+  ]) async {
+    final result = await showDialog<BudgetDraft>(
+      context: context,
+      builder: (_) => BudgetEditorDialog(existing: existing),
+    );
+    if (result == null || !context.mounted) return;
+    final duplicate =
+        store.budgets.containsKey(result.name) && existing?.key != result.name;
+    if (duplicate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A budget with this name already exists')),
+      );
+      return;
+    }
+    await store.saveBudget(
+      previousName: existing?.key,
+      name: result.name,
+      amount: result.amount,
+    );
+  }
+
+  Future<void> deleteBudget(BuildContext context, String name) async {
+    final confirmed = await confirmAction(
+      context,
+      'Delete the "$name" budget?',
+    );
+    if (confirmed) await store.removeBudget(name);
+  }
+}
+
+class BudgetDraft {
+  const BudgetDraft({required this.name, required this.amount});
+  final String name;
+  final double amount;
+}
+
+class BudgetEditorDialog extends StatefulWidget {
+  const BudgetEditorDialog({super.key, this.existing});
+  final MapEntry<String, double>? existing;
+
+  @override
+  State<BudgetEditorDialog> createState() => _BudgetEditorDialogState();
+}
+
+class _BudgetEditorDialogState extends State<BudgetEditorDialog> {
+  late final TextEditingController nameController;
+  late final TextEditingController amountController;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    nameController = TextEditingController(text: widget.existing?.key ?? '');
+    amountController = TextEditingController(
+      text: widget.existing?.value.toStringAsFixed(0) ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.existing == null ? 'Add budget' : 'Edit budget'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: nameController,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(labelText: 'Budget name'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: amountController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            labelText: 'Monthly amount (THB)',
+            errorText: error,
           ),
         ),
       ],
-    );
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(onPressed: submit, child: const Text('Save')),
+    ],
+  );
+
+  void submit() {
+    final name = nameController.text.trim();
+    final amount = double.tryParse(amountController.text.replaceAll(',', ''));
+    if (name.isEmpty || amount == null || amount < 0) {
+      setState(() => error = 'Enter a valid name and amount');
+      return;
+    }
+    Navigator.pop(context, BudgetDraft(name: name, amount: amount));
   }
 }
 
@@ -856,16 +1045,18 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
     children: [
-      const SectionTitle(title: 'ข้อมูลส่วนตัวในเครื่อง'),
+      const SectionTitle(title: 'Local data'),
       const Card(
         child: ListTile(
           leading: Icon(Icons.lock_outline),
-          title: Text('โหมดออฟไลน์'),
-          subtitle: Text('ข้อมูลเก็บไว้ในเครื่องนี้ ไม่ส่งขึ้นระบบออนไลน์'),
+          title: Text('Offline mode'),
+          subtitle: Text(
+            'Your data stays on this device and is never uploaded',
+          ),
         ),
       ),
       const SizedBox(height: 12),
-      const SectionTitle(title: 'เงินตั้งต้น'),
+      const SectionTitle(title: 'Savings'),
       Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -875,7 +1066,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 controller: savingsController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'เงินเก็บปัจจุบัน (บาท)',
+                  labelText: 'Current savings (THB)',
                 ),
               ),
               const SizedBox(height: 10),
@@ -888,11 +1079,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   await widget.store.updateSavings(value);
                   if (context.mounted)
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('บันทึกเงินเก็บแล้ว')),
+                      const SnackBar(content: Text('Savings updated')),
                     );
                 },
                 icon: const Icon(Icons.save),
-                label: const Text('บันทึก'),
+                label: const Text('Save'),
               ),
             ],
           ),
@@ -906,16 +1097,16 @@ class _SettingsPageState extends State<SettingsPage> {
             ListTile(
               leading: const Icon(Icons.upload_file),
               title: const Text('Export Backup'),
-              subtitle: const Text('ส่งออกข้อมูลและสลิปเป็นไฟล์ .xanbackup'),
+              subtitle: const Text(
+                'Export data and receipts as a .xanbackup file',
+              ),
               onTap: () async {
                 final ok = await widget.store.exportBackup();
                 if (context.mounted)
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        ok
-                            ? 'สำรองข้อมูลแล้ว'
-                            : 'ยกเลิกหรือสำรองข้อมูลไม่สำเร็จ',
+                        ok ? 'Backup exported' : 'Backup cancelled or failed',
                       ),
                     ),
                   );
@@ -924,20 +1115,18 @@ class _SettingsPageState extends State<SettingsPage> {
             ListTile(
               leading: const Icon(Icons.file_download),
               title: const Text('Import Backup'),
-              subtitle: const Text('นำข้อมูลจากไฟล์กลับเข้าแอป'),
+              subtitle: const Text('Restore app data from a backup file'),
               onTap: () async {
                 final allow = await confirmAction(
                   context,
-                  'นำเข้า Backup จะเขียนทับข้อมูลปัจจุบัน ยืนยันหรือไม่?',
+                  'Importing a backup will replace current data. Continue?',
                 );
                 if (!allow) return;
                 final ok = await widget.store.importBackup();
                 if (context.mounted)
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(
-                        ok ? 'กู้คืนข้อมูลแล้ว' : 'นำเข้าไม่สำเร็จ',
-                      ),
+                      content: Text(ok ? 'Backup restored' : 'Import failed'),
                     ),
                   );
               },
@@ -949,9 +1138,9 @@ class _SettingsPageState extends State<SettingsPage> {
       const Card(
         child: ListTile(
           leading: Icon(Icons.phone_android),
-          title: Text('เวอร์ชัน 0.2'),
+          title: Text('Version 0.2'),
           subtitle: Text(
-            'Dashboard filter, backup, หนี้แบบละเอียด และการแนบสลิป',
+            'Dashboard filters, backups, debt details, and receipt attachments',
           ),
         ),
       ),
@@ -969,7 +1158,7 @@ class AddEntryPage extends StatefulWidget {
 
 class _AddEntryPageState extends State<AddEntryPage> {
   EntryType type = EntryType.expense;
-  String category = expenseCategories.first;
+  String? category;
   DateTime date = DateTime.now();
   final amountController = TextEditingController();
   final noteController = TextEditingController();
@@ -984,10 +1173,11 @@ class _AddEntryPageState extends State<AddEntryPage> {
   @override
   Widget build(BuildContext context) {
     final categories =
-        type == EntryType.expense ? expenseCategories : incomeCategories;
-    if (!categories.contains(category)) category = categories.first;
+        type == EntryType.expense
+            ? widget.store.expenseCategories
+            : widget.store.incomeCategories;
     return Scaffold(
-      appBar: AppBar(title: const Text('เพิ่มรายการ')),
+      appBar: AppBar(title: const Text('Add transaction')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -996,12 +1186,12 @@ class _AddEntryPageState extends State<AddEntryPage> {
               segments: const [
                 ButtonSegment(
                   value: EntryType.expense,
-                  label: Text('รายจ่าย'),
+                  label: Text('Expense'),
                   icon: Icon(Icons.arrow_upward),
                 ),
                 ButtonSegment(
                   value: EntryType.income,
-                  label: Text('รายรับ'),
+                  label: Text('Income'),
                   icon: Icon(Icons.arrow_downward),
                 ),
               ],
@@ -1009,24 +1199,19 @@ class _AddEntryPageState extends State<AddEntryPage> {
               onSelectionChanged:
                   (value) => setState(() {
                     type = value.first;
-                    category =
+                    final next =
                         type == EntryType.expense
-                            ? expenseCategories.first
-                            : incomeCategories.first;
+                            ? widget.store.expenseCategories
+                            : widget.store.incomeCategories;
+                    category = next.contains(category) ? category : null;
                   }),
             ),
             const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              initialValue: category,
-              decoration: const InputDecoration(labelText: 'หมวดหมู่'),
-              items:
-                  categories
-                      .map(
-                        (item) =>
-                            DropdownMenuItem(value: item, child: Text(item)),
-                      )
-                      .toList(),
-              onChanged: (value) => setState(() => category = value!),
+            CategorySelector(
+              categories: categories,
+              selected: category,
+              onSelected: (value) => setState(() => category = value),
+              onAdd: addCategory,
             ),
             const SizedBox(height: 14),
             TextField(
@@ -1036,7 +1221,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
                 decimal: true,
               ),
               decoration: const InputDecoration(
-                labelText: 'จำนวนเงิน (บาท)',
+                labelText: 'Amount (THB)',
                 prefixText: '฿ ',
               ),
             ),
@@ -1044,7 +1229,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.calendar_today),
-              title: Text('วันที่ ${date.day}/${date.month}/${date.year}'),
+              title: Text('Date · ${dateLabel(date)}'),
               trailing: TextButton(
                 onPressed: () async {
                   final picked = await showDatePicker(
@@ -1055,20 +1240,18 @@ class _AddEntryPageState extends State<AddEntryPage> {
                   );
                   if (picked != null) setState(() => date = picked);
                 },
-                child: const Text('เปลี่ยน'),
+                child: const Text('Change'),
               ),
             ),
             TextField(
               controller: noteController,
-              decoration: const InputDecoration(
-                labelText: 'หมายเหตุ (ไม่บังคับ)',
-              ),
+              decoration: const InputDecoration(labelText: 'Note (optional)'),
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: save,
               icon: const Icon(Icons.check),
-              label: const Text('บันทึกรายการ'),
+              label: const Text('Save transaction'),
             ),
           ],
         ),
@@ -1079,9 +1262,15 @@ class _AddEntryPageState extends State<AddEntryPage> {
   Future<void> save() async {
     final amount = double.tryParse(amountController.text.replaceAll(',', ''));
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาใส่จำนวนเงินให้ถูกต้อง')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter a valid amount')));
+      return;
+    }
+    if (category == null || category!.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Select or add a category')));
       return;
     }
     await widget.store.addEntry(
@@ -1089,12 +1278,42 @@ class _AddEntryPageState extends State<AddEntryPage> {
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         date: date,
         type: type,
-        category: category,
+        category: category ?? '',
         amount: amount,
         note: noteController.text.trim(),
       ),
     );
     if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> addCategory() async {
+    final controller = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Add category'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Category name'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, controller.text),
+                child: const Text('Add'),
+              ),
+            ],
+          ),
+    );
+    if (value == null || value.trim().isEmpty) return;
+    final normalized = value.trim();
+    if (mounted) setState(() => category = normalized);
+    await widget.store.addCategory(type, normalized);
   }
 }
 
@@ -1128,59 +1347,57 @@ class _AddDebtPageState extends State<AddDebtPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('เพิ่มหนี้')),
+    appBar: AppBar(title: const Text('Add debt')),
     body: SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           TextField(
             controller: name,
-            decoration: const InputDecoration(labelText: 'ชื่อหนี้'),
+            decoration: const InputDecoration(labelText: 'Debt name'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: balance,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'ยอดหนี้ตั้งต้น'),
+            decoration: const InputDecoration(labelText: 'Initial balance'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: installment,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'ค่างวดต่อเดือน'),
+            decoration: const InputDecoration(labelText: 'Monthly payment'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: months,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'จำนวนเดือนทั้งหมด'),
+            decoration: const InputDecoration(labelText: 'Total months'),
           ),
           const SizedBox(height: 12),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text('เริ่มเดือน ${monthLabel(start)}'),
+            title: Text('Start month · ${monthLabel(start)}'),
             trailing: TextButton(
               onPressed: chooseStart,
-              child: const Text('เลือกเดือน'),
+              child: const Text('Choose month'),
             ),
           ),
           TextField(
             controller: dueDay,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'วันที่ครบกำหนด (ไม่บังคับ)',
-            ),
+            decoration: const InputDecoration(labelText: 'Due day (optional)'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: note,
-            decoration: const InputDecoration(labelText: 'หมายเหตุ'),
+            decoration: const InputDecoration(labelText: 'Note'),
           ),
           const SizedBox(height: 20),
           FilledButton.icon(
             onPressed: save,
             icon: const Icon(Icons.save),
-            label: const Text('บันทึกหนี้'),
+            label: const Text('Save debt'),
           ),
         ],
       ),
@@ -1210,9 +1427,9 @@ class _AddDebtPageState extends State<AddDebtPage> {
       note: note.text.trim(),
     );
     if (debt.name.isEmpty || debt.initialBalance <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('กรุณากรอกชื่อและยอดหนี้')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a debt name and balance')),
+      );
       return;
     }
     await widget.store.addDebt(debt);
@@ -1226,73 +1443,81 @@ class DebtDetailPage extends StatelessWidget {
   final Debt debt;
 
   @override
-  Widget build(BuildContext context) {
-    final months = debt.dueMonths();
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(debt.name),
-        actions: [
-          IconButton(
-            onPressed: () => deleteDebt(context),
-            icon: const Icon(Icons.delete_outline),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('ยอดตั้งต้น ${formatMoney(debt.initialBalance)}'),
-                  Text('จ่ายแล้ว ${formatMoney(debt.paidTotal)}'),
-                  Text('คงเหลือประมาณ ${formatMoney(debt.remainingBalance)}'),
-                  if (debt.note.isNotEmpty) Text(debt.note),
-                ],
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: store,
+    builder: (context, _) {
+      final months = debt.dueMonths();
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(debt.name),
+          actions:
+              debt.isPaidOff
+                  ? null
+                  : [
+                    IconButton(
+                      onPressed: () => deleteDebt(context),
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                  ],
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Initial balance ${formatMoney(debt.initialBalance)}'),
+                    Text('Paid ${formatMoney(debt.paidTotal)}'),
+                    Text(
+                      'Estimated remaining ${formatMoney(debt.remainingBalance)}',
+                    ),
+                    if (debt.note.isNotEmpty) Text(debt.note),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          const SectionTitle(title: 'ตารางชำระ'),
-          if (months.isEmpty)
-            const EmptyState(text: 'หนี้นี้ยังไม่ได้กำหนดจำนวนเดือน')
-          else
-            ...months.map((month) {
-              final payment =
-                  debt.payments
-                      .where((item) => item.monthKey == month)
-                      .firstOrNull;
-              return Card(
-                child: ListTile(
-                  leading: Icon(
-                    payment == null
-                        ? Icons.radio_button_unchecked
-                        : Icons.check_circle,
-                    color: payment == null ? Colors.blueGrey : Colors.green,
-                  ),
-                  title: Text(monthLabel(DateTime.parse('$month-01'))),
-                  subtitle: Text(
-                    payment == null
-                        ? 'ยังไม่ยืนยันการจ่าย'
-                        : 'จ่ายแล้ว ${formatMoney(payment.amount)}${payment.receiptNumber.isEmpty ? '' : ' · ${payment.receiptNumber}'}',
-                  ),
-                  trailing:
+            const SizedBox(height: 12),
+            const SectionTitle(title: 'Payment schedule'),
+            if (months.isEmpty)
+              const EmptyState(text: 'No payment schedule is set')
+            else
+              ...months.map((month) {
+                final payment =
+                    debt.payments
+                        .where((item) => item.monthKey == month)
+                        .firstOrNull;
+                return Card(
+                  child: ListTile(
+                    leading: Icon(
                       payment == null
-                          ? FilledButton(
-                            onPressed: () => showPayment(context, month),
-                            child: const Text('จ่าย'),
-                          )
-                          : const Icon(Icons.done),
-                ),
-              );
-            }),
-        ],
-      ),
-    );
-  }
+                          ? Icons.radio_button_unchecked
+                          : Icons.check_circle,
+                      color: payment == null ? Colors.blueGrey : Colors.green,
+                    ),
+                    title: Text(monthLabel(DateTime.parse('$month-01'))),
+                    subtitle: Text(
+                      payment == null
+                          ? 'Payment not confirmed'
+                          : 'Paid ${formatMoney(payment.amount)}${payment.receiptNumber.isEmpty ? '' : ' · ${payment.receiptNumber}'}',
+                    ),
+                    trailing:
+                        payment == null
+                            ? FilledButton(
+                              onPressed: () => showPayment(context, month),
+                              child: const Text('Pay'),
+                            )
+                            : const Icon(Icons.done),
+                  ),
+                );
+              }),
+          ],
+        ),
+      );
+    },
+  );
 
   Future<void> showPayment(BuildContext context, String month) async {
     await showModalBottomSheet<void>(
@@ -1359,19 +1584,21 @@ class _PaymentFormState extends State<PaymentForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'ยืนยันการจ่าย ${monthLabel(DateTime.parse('${widget.month}-01'))}',
+          'Confirm payment · ${monthLabel(DateTime.parse('${widget.month}-01'))}',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 12),
         TextField(
           controller: amount,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'จำนวนที่จ่าย'),
+          decoration: const InputDecoration(labelText: 'Amount paid'),
         ),
         const SizedBox(height: 12),
         TextField(
           controller: receipt,
-          decoration: const InputDecoration(labelText: 'เลขสลิป (ไม่บังคับ)'),
+          decoration: const InputDecoration(
+            labelText: 'Receipt number (optional)',
+          ),
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
@@ -1379,15 +1606,15 @@ class _PaymentFormState extends State<PaymentForm> {
           icon: const Icon(Icons.image_outlined),
           label: Text(
             receiptFileName == null
-                ? 'แนบภาพสลิป (ไม่บังคับ)'
-                : 'แนบแล้ว: $receiptFileName',
+                ? 'Attach receipt image (optional)'
+                : 'Attached: $receiptFileName',
           ),
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
           onPressed: confirm,
           icon: const Icon(Icons.check),
-          label: const Text('Confirm การจ่าย'),
+          label: const Text('Confirm payment'),
         ),
       ],
     ),
@@ -1437,12 +1664,85 @@ class DebtTile extends StatelessWidget {
       title: Text(debt.name),
       subtitle: Text(
         debt.totalMonths == 0
-            ? 'ยังไม่กำหนดตารางชำระ'
-            : '${debt.payments.length}/${debt.totalMonths} เดือน · เหลือ ${formatMoney(debt.remainingBalance)}',
+            ? 'No payment schedule'
+            : '${debt.payments.length}/${debt.totalMonths} months · ${formatMoney(debt.remainingBalance)} remaining',
       ),
       trailing: const Icon(Icons.chevron_right),
     ),
   );
+}
+
+class CategorySelector extends StatelessWidget {
+  const CategorySelector({
+    super.key,
+    required this.categories,
+    required this.selected,
+    required this.onSelected,
+    required this.onAdd,
+  });
+
+  final List<String> categories;
+  final String? selected;
+  final ValueChanged<String> onSelected;
+  final Future<void> Function() onAdd;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    borderRadius: BorderRadius.circular(4),
+    onTap: () => _showOptions(context),
+    child: InputDecorator(
+      decoration: const InputDecoration(
+        labelText: 'Category',
+        suffixIcon: Icon(Icons.arrow_drop_down),
+      ),
+      child: Text(selected ?? 'Select or add a category'),
+    ),
+  );
+
+  Future<void> _showOptions(BuildContext context) async {
+    final value = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder:
+          (sheetContext) => SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
+                  child: Text(
+                    'Choose a category',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                ...categories.map(
+                  (item) => ListTile(
+                    leading: Icon(
+                      item == selected
+                          ? Icons.check_circle
+                          : Icons.circle_outlined,
+                    ),
+                    title: Text(item),
+                    onTap: () => Navigator.pop(sheetContext, item),
+                  ),
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.add),
+                  title: const Text('Add new category'),
+                  onTap: () => Navigator.pop(sheetContext, '__add__'),
+                ),
+              ],
+            ),
+          ),
+    );
+    if (!context.mounted || value == null) return;
+    if (value == '__add__') {
+      await onAdd();
+    } else {
+      onSelected(value);
+    }
+  }
 }
 
 class PeriodPicker extends StatelessWidget {
@@ -1601,7 +1901,7 @@ class EntryTile extends StatelessWidget {
         ),
         title: Text(entry.category),
         subtitle: Text(
-          '${entry.date.day}/${entry.date.month}/${entry.date.year}${entry.note.isEmpty ? '' : ' · ${entry.note}'}',
+          '${dateLabel(entry.date)}${entry.note.isEmpty ? '' : ' · ${entry.note}'}',
         ),
         trailing: Text(
           '${income ? '+' : '-'}${formatMoney(entry.amount)}',
@@ -1653,42 +1953,72 @@ List<MapEntry<String, double>> categorySummary(List<FinanceEntry> entries) {
 String formatMoney(double value) => '${value.toStringAsFixed(0)} $currency';
 String monthKey(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}';
+const _monthNames = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+const _shortMonthNames = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
 String monthLabel(DateTime month) {
-  const names = [
-    'ม.ค.',
-    'ก.พ.',
-    'มี.ค.',
-    'เม.ย.',
-    'พ.ค.',
-    'มิ.ย.',
-    'ก.ค.',
-    'ส.ค.',
-    'ก.ย.',
-    'ต.ค.',
-    'พ.ย.',
-    'ธ.ค.',
-  ];
-  return '${names[month.month - 1]} ${month.year + 543}';
+  return '${_monthNames[month.month - 1]}, ${month.year}';
 }
 
-String periodLabel(({DateTime start, DateTime end}) range) =>
-    '${range.start.day}/${range.start.month}/${range.start.year + 543} - ${range.end.subtract(const Duration(days: 1)).day}/${range.end.subtract(const Duration(days: 1)).month}/${range.end.year + 543}';
+String dateLabel(DateTime date) =>
+    '${date.day} ${_monthNames[date.month - 1]} ${date.year}';
+
+String periodLabel(
+  DashboardPeriod period,
+  ({DateTime start, DateTime end}) range,
+) {
+  if (period == DashboardPeriod.month) return monthLabel(range.start);
+  if (period == DashboardPeriod.year) return '${range.start.year}';
+  final end = range.end.subtract(const Duration(days: 1));
+  if (range.start.year != end.year) {
+    return '${range.start.day} ${_shortMonthNames[range.start.month - 1]} ${range.start.year} - '
+        '${end.day} ${_shortMonthNames[end.month - 1]} ${end.year}';
+  }
+  return '${range.start.day} ${_shortMonthNames[range.start.month - 1]} - '
+      '${end.day} ${_shortMonthNames[end.month - 1]} ${end.year}';
+}
 
 Future<bool> confirmAction(BuildContext context, String message) async =>
     await showDialog<bool>(
       context: context,
       builder:
           (_) => AlertDialog(
-            title: const Text('ยืนยัน'),
+            title: const Text('Confirm'),
             content: Text(message),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('ยกเลิก'),
+                child: const Text('Cancel'),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('ยืนยัน'),
+                child: const Text('Confirm'),
               ),
             ],
           ),
@@ -1701,17 +2031,17 @@ Future<bool> confirmTextDelete(BuildContext context, String name) async {
     context: context,
     builder:
         (_) => AlertDialog(
-          title: Text('คุณต้องการจะลบรายการ "$name" จริงหรือไม่'),
+          title: Text('Delete "$name"?'),
           content: TextField(
             controller: controller,
             decoration: const InputDecoration(
-              labelText: 'พิมพ์ confirm เพื่อยืนยัน',
+              labelText: 'Type confirm to continue',
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('ยกเลิก'),
+              child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed:
@@ -1719,7 +2049,7 @@ Future<bool> confirmTextDelete(BuildContext context, String name) async {
                     context,
                     controller.text.trim().toLowerCase() == 'confirm',
                   ),
-              child: const Text('ลบ'),
+              child: const Text('Delete'),
             ),
           ],
         ),
