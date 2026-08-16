@@ -1,0 +1,24 @@
+# Personal financial workbooks and temporary Excel lock files
+*.xlsx
+~$*.xlsx
+
+# Flutter / Dart generated files
+finance_app/.dart_tool/
+finance_app/build/
+finance_app/.flutter-plugins
+finance_app/.flutter-plugins-dependencies
+finance_app/.packages
+
+# Android / Gradle generated files
+finance_app/android/.gradle/
+finance_app/android/local.properties
+finance_app/android/app/debug/
+finance_app/android/app/profile/
+finance_app/android/app/release/
+
+# IDE and OS files
+.idea/
+*.iml
+.vscode/
+Thumbs.db
+.DS_Store
