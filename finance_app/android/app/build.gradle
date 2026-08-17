@@ -24,6 +24,14 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    // Sign local release builds so they can be installed directly on a phone.
+    // Replace with a production keystore before publishing to an app store.
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.debug
+        }
+    }
 }
 
 flutter {
