@@ -288,17 +288,27 @@ class _AppShellState extends State<AppShell> {
               ],
             ),
           ),
-          body: IndexedStack(
-            index: tab,
-            children: [
-              DashboardPage(store: widget.store),
-              EntriesPage(key: entriesPageKey, store: widget.store),
-              PlansPage(store: widget.store),
-              SettingsPage(
-                store: widget.store,
-                onThemeModeChanged: widget.onThemeModeChanged,
-              ),
-            ],
+          body: GestureDetector(
+            onHorizontalDragEnd: (details) {
+              final velocity = details.primaryVelocity ?? 0;
+              if (velocity < -250 && tab < 3) {
+                setState(() => tab++);
+              } else if (velocity > 250 && tab > 0) {
+                setState(() => tab--);
+              }
+            },
+            child: IndexedStack(
+              index: tab,
+              children: [
+                DashboardPage(store: widget.store),
+                EntriesPage(key: entriesPageKey, store: widget.store),
+                PlansPage(store: widget.store),
+                SettingsPage(
+                  store: widget.store,
+                  onThemeModeChanged: widget.onThemeModeChanged,
+                ),
+              ],
+            ),
           ),
           floatingActionButton:
               tab == 1
@@ -334,15 +344,18 @@ class _AppShellState extends State<AppShell> {
                     foregroundColor: Colors.white,
                     shape: const CircleBorder(),
                     onPressed: () => showAddEntryDialog(context, widget.store),
-                    child: const Icon(Icons.add, size: 28),
+                    child: const Icon(Icons.add, size: 30),
                   )
                   : null,
           bottomNavigationBar: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.lg),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(AppRadius.lg),
+                topRight: Radius.circular(AppRadius.lg),
+              ),
               child: NavigationBar(
-                height: 76,
+                height: 80,
                 selectedIndex: tab,
                 onDestinationSelected: (value) => setState(() => tab = value),
                 destinations: const [

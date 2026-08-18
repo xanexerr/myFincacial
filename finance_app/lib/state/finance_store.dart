@@ -258,10 +258,10 @@ class FinanceStore extends ChangeNotifier {
     required Debt debt,
     required String month,
     required double amount,
+    required DateTime paidAt,
     required String receiptNumber,
     String? receiptFileName,
   }) async {
-    final paidAt = DateTime.now();
     debt.payments.removeWhere((payment) => payment.monthKey == month);
     debt.payments.add(
       DebtPayment(

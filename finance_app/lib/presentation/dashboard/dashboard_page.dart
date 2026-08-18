@@ -183,7 +183,7 @@ class _DashboardPageState extends State<DashboardPage> {
         const SizedBox(height: 14),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 Row(
@@ -192,11 +192,14 @@ class _DashboardPageState extends State<DashboardPage> {
                       flex: 4,
                       child: Text(
                         'Category summary',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
                     ),
                     Expanded(
-                      flex: 2,
+                      flex: 3,
                       child: DropdownButtonFormField<DashboardFilter>(
                         isDense: true,
                         initialValue: filter,
@@ -223,22 +226,26 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                   ],
                 ),
-                CategoryBarSummary(
-                  embedded: true,
-                  title: 'Income',
-                  entries:
-                      entries.where((e) => e.type == EntryType.income).toList(),
-                  color: Colors.green,
-                ),
-                CategoryBarSummary(
-                  embedded: true,
-                  title: 'Expenses',
-                  entries:
-                      entries
-                          .where((e) => e.type == EntryType.expense)
-                          .toList(),
-                  color: Colors.red,
-                ),
+                if (filter != DashboardFilter.expense)
+                  CategoryBarSummary(
+                    embedded: true,
+                    title: 'Income',
+                    entries:
+                        entries
+                            .where((e) => e.type == EntryType.income)
+                            .toList(),
+                    color: Colors.green,
+                  ),
+                if (filter != DashboardFilter.income)
+                  CategoryBarSummary(
+                    embedded: true,
+                    title: 'Expenses',
+                    entries:
+                        entries
+                            .where((e) => e.type == EntryType.expense)
+                            .toList(),
+                    color: Colors.red,
+                  ),
               ],
             ),
           ),

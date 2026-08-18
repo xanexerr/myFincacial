@@ -29,6 +29,28 @@ Future<bool> confirmTextDelete(BuildContext context, String name) async {
   return result == true;
 }
 
+Future<bool> confirmDelete(BuildContext context, String name) async {
+  return await showDialog<bool>(
+        context: context,
+        builder:
+            (_) => AlertDialog(
+              title: Text('Delete "$name"?'),
+              content: const Text('This transaction will be permanently deleted.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Delete'),
+                ),
+              ],
+            ),
+      ) ??
+      false;
+}
+
 class ConfirmTextDeleteDialog extends StatefulWidget {
   const ConfirmTextDeleteDialog({super.key, required this.name});
   final String name;

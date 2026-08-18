@@ -119,6 +119,7 @@ class _PaymentFormState extends State<PaymentForm> {
   late final TextEditingController amount;
   final receipt = TextEditingController();
   String? receiptFileName;
+  DateTime paidAt = DateTime.now();
 
   @override
   void initState() {
@@ -163,6 +164,12 @@ class _PaymentFormState extends State<PaymentForm> {
             labelText: 'Receipt number (optional)',
           ),
         ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: pickPaymentDate,
+          icon: const Icon(Icons.calendar_today),
+          label: Text('Payment date · ${dateLabel(paidAt)}'),
+        ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: pickImage,
@@ -188,6 +195,16 @@ class _PaymentFormState extends State<PaymentForm> {
     if (file != null) setState(() => receiptFileName = file);
   }
 
+  Future<void> pickPaymentDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+      initialDate: paidAt,
+    );
+    if (picked != null) setState(() => paidAt = picked);
+  }
+
   Future<void> confirm() async {
     final value = double.tryParse(amount.text.replaceAll(',', ''));
     if (value == null || value <= 0) return;
@@ -195,6 +212,7 @@ class _PaymentFormState extends State<PaymentForm> {
       debt: widget.debt,
       month: widget.month,
       amount: value,
+      paidAt: paidAt,
       receiptNumber: receipt.text.trim(),
       receiptFileName: receiptFileName,
     );

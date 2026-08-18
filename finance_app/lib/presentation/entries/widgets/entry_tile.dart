@@ -7,14 +7,13 @@ class EntryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final income = entry.type == EntryType.income;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 6),
-      child: ListTile(
-        onTap: store == null ? null : () => showEntryActions(context, store!),
+    return ListTile(
+        onTap: () => showEntryDetails(context),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         leading: CircleAvatar(
           backgroundColor: income ? Colors.green.shade100 : Colors.red.shade100,
           child: Icon(
-            income ? Icons.add : Icons.remove,
+            income ? Symbols.payment_arrow_down : Symbols.send_money,
             color: income ? Colors.green : Colors.red,
           ),
         ),
@@ -23,7 +22,8 @@ class EntryTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(dateLabel(entry.date)),
-            if (entry.note.isNotEmpty) Text(entry.note),
+            if (entry.note.isNotEmpty)
+              Text(entry.note, maxLines: 1, overflow: TextOverflow.ellipsis),
           ],
         ),
         trailing: Text(
@@ -33,83 +33,51 @@ class EntryTile extends StatelessWidget {
             color: income ? Colors.green.shade700 : Colors.red.shade700,
           ),
         ),
+    );
+  }
+
+  Future<void> showEntryDetails(BuildContext context) async {
+    final income = entry.type == EntryType.income;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Transaction details'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _detail('Category', entry.category),
+            _detail('Type', income ? 'Income' : 'Expense'),
+            _detail('Date', dateLabel(entry.date)),
+            _detail(
+              'Amount',
+              '${income ? '+' : '-'}${formatMoney(entry.amount)}',
+            ),
+            if (entry.note.isNotEmpty) _detail('Note', entry.note),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
 
-  Future<void> showEntryActions(
-    BuildContext context,
-    FinanceStore store,
-  ) async {
-    final canSwitch = DateTime.now().difference(entry.date).inHours <= 72;
-    final targetType =
-        entry.type == EntryType.income ? EntryType.expense : EntryType.income;
-    final categories =
-        targetType == EntryType.income
-            ? store.incomeCategories
-            : store.expenseCategories;
-    final category = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder:
-          (sheetContext) => SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      'Move to category',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  ...categories.map(
-                    (c) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      title: Text(c),
-                      onTap: () => Navigator.pop(sheetContext, c),
-                    ),
-                  ),
-                  if (canSwitch)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      title: Text('Switch to ${targetType.name}'),
-                      leading: const Icon(Icons.swap_horiz),
-                      onTap: () => Navigator.pop(sheetContext, '__switch__'),
-                    ),
-                ],
-              ),
-            ),
+  Widget _detail(String label, String value) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$label\n',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
-    );
-    if (category == null) return;
-    final type = category == '__switch__' ? targetType : entry.type;
-    final name =
-        category == '__switch__'
-            ? (type == EntryType.income
-                ? store.defaultIncomeCategory
-                : store.defaultExpenseCategory)
-            : category;
-    if (name == null) return;
-    await store.updateEntry(
-      FinanceEntry(
-        id: entry.id,
-        date: entry.date,
-        type: type,
-        category: name,
-        amount: entry.amount,
-        note: entry.note,
-        sourceDebtId: entry.sourceDebtId,
-        sourceDebtMonth: entry.sourceDebtMonth,
+          TextSpan(text: value, style: const TextStyle(fontSize: 14)),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }

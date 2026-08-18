@@ -328,35 +328,40 @@ class _EntriesPageState extends State<EntriesPage> {
         else
           ...groups.entries.map(
             (group) => Card(
-              margin: const EdgeInsets.only(bottom: 12),
+              // margin: const EdgeInsets.only(bottom: 12),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                // padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SectionTitle(title: group.key),
-                    ...group.value.map(
-                      (entry) => Dismissible(
-                        key: ValueKey(entry.id),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          decoration: BoxDecoration(
+                    ...group.value.asMap().entries.expand(
+                      (item) => [
+                        Dismissible(
+                          key: ValueKey(item.value.id),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
                             color: const Color(0xffa51d35),
-                            borderRadius: BorderRadius.circular(AppRadius.lg),
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            child: const Icon(Icons.delete, color: Colors.white),
                           ),
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 20),
-                          child: const Icon(Icons.delete, color: Colors.white),
+                          confirmDismiss:
+                              (_) => confirmDelete(
+                                context,
+                                item.value.category,
+                              ),
+                          onDismissed: (_) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) store.removeEntry(item.value.id);
+                            });
+                          },
+                          child: EntryTile(entry: item.value, store: store),
                         ),
-                        confirmDismiss:
-                            (_) => confirmTextDelete(context, entry.category),
-                        onDismissed: (_) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted) store.removeEntry(entry.id);
-                          });
-                        },
-                        child: EntryTile(entry: entry, store: store),
-                      ),
+                        if (item.key < group.value.length - 1)
+                          const Divider(height: 1),
+                      ],
                     ),
                   ],
                 ),

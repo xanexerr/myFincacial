@@ -34,16 +34,16 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
     children: [
-      const SectionTitle(title: 'Local data'),
-      const Card(
-        child: ListTile(
-          leading: Icon(Icons.lock_outline),
-          title: Text('Offline mode'),
-          subtitle: Text(
-            'Your data stays on this device and is never uploaded',
-          ),
-        ),
-      ),
+      // const SectionTitle(title: 'Local data'),
+      // const Card(
+      //   child: ListTile(
+      //     leading: Icon(Icons.lock_outline),
+      //     title: Text('Offline mode'),
+      //     subtitle: Text(
+
+      //     ),
+      //   ),
+      // ),
       const SizedBox(height: 12),
       const SectionTitle(title: 'Appearance'),
       Card(
@@ -128,6 +128,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   );
               },
             ),
+            SizedBox(height: 12),
             ListTile(
               leading: const Icon(Icons.file_download),
               title: const Text('Import Backup'),
@@ -147,17 +148,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   );
               },
             ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 12),
-      const Card(
-        child: ListTile(
+            ListTile(
           leading: Icon(Icons.phone_android),
-          title: Text('Version 0.2'),
+              title: Text('Version 0.3.3'),
           subtitle: Text(
-            'Dashboard filters, backups, debt details, and receipt attachments',
+                'Your data stays on this device and is never uploaded',
           ),
+            ),
+          ],
         ),
       ),
     ],
