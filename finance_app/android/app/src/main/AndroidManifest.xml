@@ -1,8 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:label="ManotyLOG"
-        android:icon="@drawable/app_icon_v03"
-        android:roundIcon="@drawable/app_icon_v03"
+        android:icon="@drawable/app_icon_v04"
+        android:roundIcon="@drawable/app_icon_v04"
         android:name="${applicationName}">
         <activity
             android:name=".MainActivity"
