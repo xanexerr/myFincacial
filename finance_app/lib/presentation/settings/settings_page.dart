@@ -150,7 +150,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             ListTile(
           leading: Icon(Icons.phone_android),
-              title: Text('Version 0.3.3'),
+              title: Text('Version 0.4'),
           subtitle: Text(
                 'Your data stays on this device and is never uploaded',
           ),

@@ -1,7 +1,7 @@
 name: xan_finance
 description: Offline personal finance planner for Xan.
 publish_to: "none"
-version: 0.3.0+2
+version: 0.4.0+3
 
 environment:
   sdk: ">=3.7.0 <4.0.0"
