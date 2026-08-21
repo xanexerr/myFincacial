@@ -257,8 +257,8 @@ class _AppShellState extends State<AppShell> {
   int tab = 0;
   late final PageController _pageController;
   final entriesPageKey = GlobalKey<_EntriesPageState>();
-  String get title =>
-      ['Overview', 'Transactions', 'Financial Plan', 'Settings'][tab];
+  String get title => ['', '', '', ''][tab];
+  // ['Overview', 'Transactions', 'Financial Plan', 'Settings'][tab];
 
   @override
   void initState() {

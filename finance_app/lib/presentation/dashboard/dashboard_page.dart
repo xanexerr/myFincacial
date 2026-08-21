@@ -72,101 +72,55 @@ class _DashboardPageState extends State<DashboardPage> {
     });
   }
 
-  Widget _periodButton() {
-    return Container(
-      height: 58,
-      width: 58,
-      padding: EdgeInsets.zero,
-      decoration: BoxDecoration(
-        color: const Color(0xff503c74),
-        borderRadius: BorderRadius.circular(29),
-      ),
-      child: MenuAnchor(
-        alignmentOffset: const Offset(0, -58),
-        style: MenuStyle(
-          backgroundColor: const WidgetStatePropertyAll(Color(0xff241326)),
-          minimumSize: const WidgetStatePropertyAll(Size(58, 0)),
-          maximumSize: const WidgetStatePropertyAll(Size(58, double.infinity)),
-          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-          elevation: const WidgetStatePropertyAll(0),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          ),
-        ),
-        menuChildren: [
-          _periodMenuItem(DashboardPeriod.week, 'W'),
-          _periodMenuItem(DashboardPeriod.month, 'M'),
-          _periodMenuItem(DashboardPeriod.year, 'Y'),
-        ],
-        builder:
-            (context, controller, child) => GestureDetector(
-              onTap: () {
-                if (controller.isOpen) {
-                  controller.close();
-                } else {
-                  controller.open();
-                }
-              },
-              child: Center(
-                child: Text(
-                  period == DashboardPeriod.week
-                      ? 'W'
-                      : period == DashboardPeriod.month
-                      ? 'M'
-                      : 'Y',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-      ),
-    );
+  void cyclePeriod() {
+    final next = switch (period) {
+      DashboardPeriod.week => DashboardPeriod.month,
+      DashboardPeriod.month => DashboardPeriod.year,
+      DashboardPeriod.year => DashboardPeriod.week,
+    };
+    changePeriod(next);
   }
 
-  Widget _periodMenuItem(DashboardPeriod value, String label) => MenuItemButton(
-    onPressed: () => changePeriod(value),
-    style: const ButtonStyle(
-      padding: WidgetStatePropertyAll(EdgeInsets.zero),
-      minimumSize: WidgetStatePropertyAll(Size(58, 58)),
-      maximumSize: WidgetStatePropertyAll(Size(58, 58)),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    ),
-    child: SizedBox(
-      width: 58,
-      height: 58,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: 1),
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        builder:
-            (context, value, child) => Opacity(
-              opacity: value,
-              child: Transform.translate(
-                offset: Offset(0, (1 - value) * -12),
-                child: child,
-              ),
-            ),
-        child: Container(
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: Color(0xff503c74),
-            // border: Border(bottom: BorderSide(color: Color(0x99ffffff))),
-          ),
+  Widget _periodButton() {
+    final label = switch (period) {
+      DashboardPeriod.week => 'W',
+      DashboardPeriod.month => 'M',
+      DashboardPeriod.year => 'Y',
+    };
+    return GestureDetector(
+      onTap: cyclePeriod,
+      child: Container(
+        height: 58,
+        width: 58,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Color(0xff503c74),
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          transitionBuilder: (child, animation) {
+            final outgoing = animation.status == AnimationStatus.reverse;
+            final offset = Tween<Offset>(
+              begin: outgoing ? Offset.zero : const Offset(0, -1),
+              end: outgoing ? const Offset(0, 1) : Offset.zero,
+            ).animate(animation);
+            return SlideTransition(position: offset, child: child);
+          },
           child: Text(
             label,
+            key: ValueKey(label),
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
