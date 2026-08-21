@@ -72,9 +72,9 @@ String dateLabel(DateTime date) =>
     '${date.day} ${_monthNames[date.month - 1]} ${date.year}';
 
 String timeLabel(DateTime date) {
-  final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+  final hour = date.hour.toString().padLeft(2, '0');
   final minute = date.minute.toString().padLeft(2, '0');
-  return '$hour:$minute ${date.hour < 12 ? 'AM' : 'PM'}';
+  return '$hour:$minute';
 }
 
 String periodLabel(

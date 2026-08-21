@@ -17,6 +17,8 @@ class AddEntryPage extends StatefulWidget {
 class _AddEntryPageState extends State<AddEntryPage> {
   EntryType type = EntryType.expense;
   String? category;
+  String? categoryError;
+  String? amountError;
   DateTime date = DateTime.now();
   final amountController = TextEditingController();
   final noteController = TextEditingController();
@@ -114,8 +116,13 @@ class _AddEntryPageState extends State<AddEntryPage> {
                     CategorySelector(
                       categories: categories,
                       selected: category,
-                      onSelected: (value) => setState(() => category = value),
+                      onSelected:
+                          (value) => setState(() {
+                            category = value;
+                            categoryError = null;
+                          }),
                       onAdd: addCategory,
+                      errorText: categoryError,
                     ),
                     const SizedBox(height: 14),
                     TextField(
@@ -124,17 +131,33 @@ class _AddEntryPageState extends State<AddEntryPage> {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      decoration: const InputDecoration(
+                      onChanged: (_) {
+                        if (amountError != null) {
+                          setState(() => amountError = null);
+                        }
+                      },
+                      decoration: InputDecoration(
                         labelText: 'Amount (THB)',
                         prefixText: '฿ ',
+                        errorText: amountError,
                       ),
                     ),
                     const SizedBox(height: 12),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.calendar_today),
-                      title: Text('Date · ${dateLabel(date)}'),
-                      subtitle: Text('Time · ${timeLabel(date)}'),
+                      title: Text(
+                        '${dateLabel(date)}',
+                        style: TextStyle(
+                          fontSize: 14.0, // Set size in logical pixels
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Time · ${timeLabel(date)}',
+                        style: TextStyle(
+                          fontSize: 14.0, // Set size in logical pixels
+                        ),
+                      ),
                       trailing: TextButton(
                         onPressed: () async {
                           final picked = await showDatePicker(
@@ -191,15 +214,11 @@ class _AddEntryPageState extends State<AddEntryPage> {
   Future<void> save() async {
     final amount = double.tryParse(amountController.text.replaceAll(',', ''));
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Enter a valid amount')));
+      setState(() => amountError = 'กรุณากรอกจำนวนเงินที่ถูกต้อง');
       return;
     }
     if (category == null || category!.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Select or add a category')));
+      setState(() => categoryError = 'กรุณากรอก Category');
       return;
     }
     await widget.store.addEntry(
@@ -267,7 +286,12 @@ class _AddEntryPageState extends State<AddEntryPage> {
     );
     if (value == null || value.trim().isEmpty) return;
     final normalized = value.trim();
-    if (mounted) setState(() => category = normalized);
+    if (mounted) {
+      setState(() {
+        category = normalized;
+        categoryError = null;
+      });
+    }
     await widget.store.addCategory(type, normalized);
   }
 }

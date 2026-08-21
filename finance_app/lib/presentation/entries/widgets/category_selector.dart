@@ -7,21 +7,24 @@ class CategorySelector extends StatelessWidget {
     required this.selected,
     required this.onSelected,
     required this.onAdd,
+    this.errorText,
   });
 
   final List<String> categories;
   final String? selected;
   final ValueChanged<String> onSelected;
   final Future<void> Function() onAdd;
+  final String? errorText;
 
   @override
   Widget build(BuildContext context) => InkWell(
     borderRadius: BorderRadius.circular(AppRadius.sm),
     onTap: () => _showOptions(context),
     child: InputDecorator(
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         labelText: 'Category',
         suffixIcon: Icon(Icons.arrow_drop_down),
+        errorText: errorText,
       ),
       child: Text(selected ?? 'Select or add a category'),
     ),

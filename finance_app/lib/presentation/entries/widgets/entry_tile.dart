@@ -1,38 +1,48 @@
 part of finance_app;
 
 class EntryTile extends StatelessWidget {
-  const EntryTile({super.key, required this.entry, this.store});
+  const EntryTile({
+    super.key,
+    required this.entry,
+    this.store,
+    this.showTime = false,
+  });
   final FinanceEntry entry;
   final FinanceStore? store;
+  final bool showTime;
   @override
   Widget build(BuildContext context) {
     final income = entry.type == EntryType.income;
     return ListTile(
-        onTap: () => showEntryDetails(context),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        leading: CircleAvatar(
-          backgroundColor: income ? Colors.green.shade100 : Colors.red.shade100,
-          child: Icon(
-            income ? Symbols.payment_arrow_down : Symbols.send_money,
-            color: income ? Colors.green : Colors.red,
+      onTap: () => showEntryDetails(context),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      leading: CircleAvatar(
+        backgroundColor: income ? Colors.green.shade100 : Colors.red.shade100,
+        child: Icon(
+          income ? Symbols.payment_arrow_down : Symbols.send_money,
+          color: income ? Colors.green : Colors.red,
+        ),
+      ),
+      title: Text(entry.category),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            showTime
+                ? '${dateLabel(entry.date)} · ${timeLabel(entry.date)}'
+                : dateLabel(entry.date),
           ),
+          if (entry.note.isNotEmpty)
+            Text(entry.note, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
+      ),
+      trailing: Text(
+        '${income ? '+' : '-'}${formatMoney(entry.amount)}',
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: income ? Colors.green.shade700 : Colors.red.shade700,
         ),
-        title: Text(entry.category),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(dateLabel(entry.date)),
-            if (entry.note.isNotEmpty)
-              Text(entry.note, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ],
-        ),
-        trailing: Text(
-          '${income ? '+' : '-'}${formatMoney(entry.amount)}',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: income ? Colors.green.shade700 : Colors.red.shade700,
-          ),
-        ),
+      ),
     );
   }
 
@@ -40,29 +50,30 @@ class EntryTile extends StatelessWidget {
     final income = entry.type == EntryType.income;
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Transaction details'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _detail('Category', entry.category),
-            _detail('Type', income ? 'Income' : 'Expense'),
-            _detail('Date', dateLabel(entry.date)),
-            _detail(
-              'Amount',
-              '${income ? '+' : '-'}${formatMoney(entry.amount)}',
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('Transaction details'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _detail('Category', entry.category),
+                _detail('Type', income ? 'Income' : 'Expense'),
+                _detail('Date', dateLabel(entry.date)),
+                _detail(
+                  'Amount',
+                  '${income ? '+' : '-'}${formatMoney(entry.amount)}',
+                ),
+                if (entry.note.isNotEmpty) _detail('Note', entry.note),
+              ],
             ),
-            if (entry.note.isNotEmpty) _detail('Note', entry.note),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Close'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Close'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 

@@ -45,17 +45,20 @@ class CategoryManager extends StatelessWidget {
                 final value = await showDialog<String>(
                   context: context,
                   builder:
-                      (_) => AlertDialog(
+                      (dialogContext) => AlertDialog(
                         title: const Text('Rename category'),
                         content: TextField(controller: controller),
                         actions: [
                           TextButton(
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: () => Navigator.pop(dialogContext),
                             child: const Text('Cancel'),
                           ),
                           FilledButton(
                             onPressed:
-                                () => Navigator.pop(context, controller.text),
+                                () => Navigator.pop(
+                                  dialogContext,
+                                  controller.text,
+                                ),
                             child: const Text('Save'),
                           ),
                         ],

@@ -13,7 +13,7 @@ enum EntryPeriod { year, month, week, day }
 enum EntryGrouping { week, day }
 
 class _EntriesPageState extends State<EntriesPage> {
-  EntryPeriod period = EntryPeriod.month;
+  EntryPeriod period = EntryPeriod.day;
   EntryGrouping grouping = EntryGrouping.day;
   EntryType? type;
   DateTime anchor = DateTime.now();
@@ -198,34 +198,47 @@ class _EntriesPageState extends State<EntriesPage> {
                                 if (selectedPeriod == EntryPeriod.week) ...[
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: DropdownButtonFormField<int>(
-                                      initialValue: weekOfYear(selectedAnchor),
-                                      decoration: const InputDecoration(
-                                        labelText: 'Week',
-                                      ),
-                                      items: List.generate(
-                                        53,
-                                        (index) => DropdownMenuItem(
-                                          value: index + 1,
-                                          child: Text('Week ${index + 1}'),
+                                    child: Row(
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'Previous week',
+                                          onPressed:
+                                              () => setSheetState(
+                                                () => selectedAnchor =
+                                                    startOfWeek(
+                                                      selectedAnchor.subtract(
+                                                        const Duration(days: 7),
+                                                      ),
+                                                    ),
+                                              ),
+                                          icon: const Icon(
+                                            Icons.chevron_left,
+                                          ),
                                         ),
-                                      ),
-                                      onChanged:
-                                          (week) => setSheetState(() {
-                                            if (week != null) {
-                                              selectedAnchor = startOfWeek(
-                                                DateTime(
-                                                  selectedAnchor.year,
-                                                  1,
-                                                  1,
-                                                ).add(
-                                                  Duration(
-                                                    days: (week - 1) * 7,
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          }),
+                                        Expanded(
+                                          child: Center(
+                                            child: Text(
+                                              _weekRangeLabel(selectedAnchor),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          tooltip: 'Next week',
+                                          onPressed:
+                                              () => setSheetState(
+                                                () => selectedAnchor =
+                                                    startOfWeek(
+                                                      selectedAnchor.add(
+                                                        const Duration(days: 7),
+                                                      ),
+                                                    ),
+                                              ),
+                                          icon: const Icon(
+                                            Icons.chevron_right,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -280,6 +293,17 @@ class _EntriesPageState extends State<EntriesPage> {
             ),
           ),
     );
+  }
+
+  String _weekRangeLabel(DateTime date) {
+    final start = startOfWeek(date);
+    final end = start.add(const Duration(days: 6));
+    if (start.year != end.year) {
+      return '${start.day} ${_shortMonthNames[start.month - 1]} ${start.year} - '
+          '${end.day} ${_shortMonthNames[end.month - 1]} ${end.year}';
+    }
+    return '${start.day} ${_shortMonthNames[start.month - 1]} - '
+        '${end.day} ${_shortMonthNames[end.month - 1]} ${end.year}';
   }
 
   @override

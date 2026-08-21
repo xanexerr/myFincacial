@@ -203,10 +203,35 @@ class _DashboardPageState extends State<DashboardPage> {
                       child: DropdownButtonFormField<DashboardFilter>(
                         isDense: true,
                         initialValue: filter,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Type',
-                          contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          filled: true,
+                          fillColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withValues(alpha: .45),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            borderSide: BorderSide(
+                              color: Theme.of(context).colorScheme.primary,
+                              width: 2,
+                            ),
+                          ),
                         ),
+                        dropdownColor: Theme.of(context).colorScheme.surface,
+                        icon: const Icon(Icons.keyboard_arrow_down),
                         items: const [
                           DropdownMenuItem(
                             value: DashboardFilter.all,
@@ -226,36 +251,57 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                   ],
                 ),
-                if (filter != DashboardFilter.expense)
-                  CategoryBarSummary(
-                    embedded: true,
-                    title: 'Income',
-                    entries:
-                        entries
-                            .where((e) => e.type == EntryType.income)
-                            .toList(),
-                    color: Colors.green,
-                  ),
-                if (filter != DashboardFilter.income)
-                  CategoryBarSummary(
-                    embedded: true,
-                    title: 'Expenses',
-                    entries:
-                        entries
-                            .where((e) => e.type == EntryType.expense)
-                            .toList(),
-                    color: Colors.red,
-                  ),
+                if (entries.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 16),
+                    child: Text('No Data'),
+                  )
+                else ...[
+                  if (filter != DashboardFilter.expense)
+                    CategoryBarSummary(
+                      embedded: true,
+                      title: 'Income',
+                      entries:
+                          entries
+                              .where((e) => e.type == EntryType.income)
+                              .toList(),
+                      color: Colors.green,
+                    ),
+                  if (filter != DashboardFilter.income)
+                    CategoryBarSummary(
+                      embedded: true,
+                      title: 'Expenses',
+                      entries:
+                          entries
+                              .where((e) => e.type == EntryType.expense)
+                              .toList(),
+                      color: Colors.red,
+                    ),
+                ],
               ],
             ),
           ),
         ),
         const SizedBox(height: 10),
-        const SectionTitle(title: 'Recent transactions'),
+
         if (entries.isEmpty)
-          const EmptyState(text: 'No transactions in this period')
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Text('No Data'),
+          )
         else
-          ...entries.take(8).map((entry) => EntryTile(entry: entry)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SectionTitle(title: 'Recent transactions'),
+                ...entries
+                    .take(8)
+                    .map((entry) => EntryTile(entry: entry, showTime: true)),
+              ],
+            ),
+          ),
       ],
     );
   }

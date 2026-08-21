@@ -21,13 +21,14 @@ class CategoryBarSummary extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            
             if (items.isEmpty)
-              const Text('No data')
+            const Text('')
             else
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
               ...items.asMap().entries.map((x) {
                 final ratio = (x.value.value / items.first.value).clamp(
-                  0.0,
+                  0.2,
                   1.0,
                 );
                 final barColor = Color.lerp(color, Colors.white, x.key * .12)!;
@@ -38,16 +39,16 @@ class CategoryBarSummary extends StatelessWidget {
                       (context, constraints) => Stack(
                         children: [
                           Container(
-                            height: 32,
+                          height: 24,
 
                             width: constraints.maxWidth * ratio,
                             decoration: BoxDecoration(
                               color: barColor,
-                              borderRadius: BorderRadius.circular(AppRadius.md),
+                            borderRadius: BorderRadius.circular(AppRadius.full),
                             ),
                           ),
                           SizedBox(
-                            height: 32,
+                          height: 24,
 
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
@@ -63,6 +64,7 @@ class CategoryBarSummary extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         color: Colors.white,
+                                      fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -71,7 +73,7 @@ class CategoryBarSummary extends StatelessWidget {
                                     formatMoney(x.value.value),
                                     style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 12,
+                                    fontSize: 10,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
