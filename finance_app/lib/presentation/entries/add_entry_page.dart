@@ -84,12 +84,12 @@ class _AddEntryPageState extends State<AddEntryPage> {
                         ButtonSegment(
                           value: EntryType.expense,
                           label: Text('Expense'),
-                          icon: Icon(Icons.arrow_upward),
+                          icon: Icon(Icons.circle_outlined),
                         ),
                         ButtonSegment(
                           value: EntryType.income,
                           label: Text('Income'),
-                          icon: Icon(Icons.arrow_downward),
+                          icon: Icon(Icons.circle_outlined),
                         ),
                       ],
                       selected: {type},
@@ -160,16 +160,79 @@ class _AddEntryPageState extends State<AddEntryPage> {
                       ),
                       trailing: TextButton(
                         onPressed: () async {
-                          final picked = await showDatePicker(
+                          final picked = await showCupertinoModalPopup<DateTime>(
                             context: context,
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2035),
-                            initialDate: date,
+                            builder: (pickerContext) => Container(
+                              height: 280,
+                              color: CupertinoColors.systemBackground.resolveFrom(
+                                pickerContext,
+                              ),
+                              child: SafeArea(
+                                child: Column(
+                                  children: [
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: CupertinoButton(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                        ),
+                                        onPressed: () => Navigator.pop(
+                                          pickerContext,
+                                          date,
+                                        ),
+                                        child: const Text('Done'),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: CupertinoDatePicker(
+                                        mode: CupertinoDatePickerMode.date,
+                                        initialDateTime: date,
+                                        minimumDate: DateTime(2020),
+                                        maximumDate: DateTime(2035, 12, 31),
+                                        onDateTimeChanged: (value) => date = value,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           );
                           if (picked != null) {
-                            final time = await showTimePicker(
+                            final time = await showCupertinoModalPopup<TimeOfDay>(
                               context: context,
-                              initialTime: TimeOfDay.fromDateTime(date),
+                              builder: (pickerContext) => Container(
+                                height: 280,
+                                color: CupertinoColors.systemBackground.resolveFrom(
+                                  pickerContext,
+                                ),
+                                child: SafeArea(
+                                  child: Column(
+                                    children: [
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: CupertinoButton(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 20,
+                                          ),
+                                          onPressed: () => Navigator.pop(
+                                            pickerContext,
+                                            TimeOfDay.fromDateTime(date),
+                                          ),
+                                          child: const Text('Done'),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: CupertinoDatePicker(
+                                          mode: CupertinoDatePickerMode.time,
+                                          initialDateTime: date,
+                                          use24hFormat: true,
+                                          onDateTimeChanged: (value) => date = value,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             );
                             setState(() {
                               date = DateTime(

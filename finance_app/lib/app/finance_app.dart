@@ -255,9 +255,22 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int tab = 0;
+  late final PageController _pageController;
   final entriesPageKey = GlobalKey<_EntriesPageState>();
   String get title =>
       ['Overview', 'Transactions', 'Financial Plan', 'Settings'][tab];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -288,18 +301,11 @@ class _AppShellState extends State<AppShell> {
               ],
             ),
           ),
-          body: GestureDetector(
-            onHorizontalDragEnd: (details) {
-              final velocity = details.primaryVelocity ?? 0;
-              if (velocity < -250 && tab < 3) {
-                setState(() => tab++);
-              } else if (velocity > 250 && tab > 0) {
-                setState(() => tab--);
-              }
-            },
-            child: IndexedStack(
-              index: tab,
-              children: [
+          body: PageView(
+            controller: _pageController,
+            onPageChanged: (value) => setState(() => tab = value),
+            physics: const BouncingScrollPhysics(),
+            children: [
                 DashboardPage(store: widget.store),
                 EntriesPage(key: entriesPageKey, store: widget.store),
                 PlansPage(store: widget.store),
@@ -307,8 +313,7 @@ class _AppShellState extends State<AppShell> {
                   store: widget.store,
                   onThemeModeChanged: widget.onThemeModeChanged,
                 ),
-              ],
-            ),
+            ],
           ),
           floatingActionButton:
               tab == 1
@@ -357,7 +362,13 @@ class _AppShellState extends State<AppShell> {
               child: NavigationBar(
                 height: 80,
                 selectedIndex: tab,
-                onDestinationSelected: (value) => setState(() => tab = value),
+                onDestinationSelected: (value) {
+                  _pageController.animateToPage(
+                    value,
+                    duration: const Duration(milliseconds: 420),
+                    curve: Curves.easeOutCubic,
+                  );
+                },
                 destinations: const [
                   NavigationDestination(
                     icon: Icon(Icons.home_outlined),

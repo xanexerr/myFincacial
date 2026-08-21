@@ -59,7 +59,7 @@ class EntryTile extends StatelessWidget {
               children: [
                 _detail('Category', entry.category),
                 _detail('Type', income ? 'Income' : 'Expense'),
-                _detail('Date', dateLabel(entry.date)),
+                _detail('Date', '${dateLabel(entry.date)} · ${timeLabel(entry.date)}'),
                 _detail(
                   'Amount',
                   '${income ? '+' : '-'}${formatMoney(entry.amount)}',

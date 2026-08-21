@@ -327,33 +327,43 @@ class _EntriesPageState extends State<EntriesPage> {
             : DateTime(anchor.year, anchor.month + 1);
     final entries = store.inRange(start, end, type: type)
       ..sort((a, b) => b.date.compareTo(a.date));
+    final income = entries
+        .where((entry) => entry.type == EntryType.income)
+        .fold<double>(0, (total, entry) => total + entry.amount);
+    final expense = entries
+        .where((entry) => entry.type == EntryType.expense)
+        .fold<double>(0, (total, entry) => total + entry.amount);
+    final netBalance = income - expense;
     final groups = <String, List<FinanceEntry>>{};
     for (final e in entries) {
       final key =
           period == EntryPeriod.day
-              ? '${e.date.hour < 6
-                  ? '1 AM - 6 AM'
-                  : e.date.hour < 12
-                  ? '6 AM - 12 PM'
-                  : e.date.hour < 18
-                  ? '1 PM - 6 PM'
-                  : '6 PM - 12 AM'} · ${dateLabel(e.date)}'
+              ? dateLabel(e.date)
               : grouping == EntryGrouping.week
               ? '${monthLabel(e.date)} - Week ${((e.date.day - 1) ~/ 7) + 1}'
               : dateLabel(e.date);
       groups.putIfAbsent(key, () => []).add(e);
     }
-    return ListView(
+    final groupEntries = groups.entries.toList();
+    return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-      children: [
-        const SizedBox(height: 8),
-        if (entries.isEmpty)
-          const EmptyState(text: 'No transactions in this period')
-        else
-          ...groups.entries.map(
-            (group) => Card(
-              // margin: const EdgeInsets.only(bottom: 12),
-              child: Padding(
+      itemCount: entries.isEmpty ? 2 : groupEntries.length + 2,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _TransactionSummary(
+            income: income,
+            expense: expense,
+            netBalance: netBalance,
+          );
+        }
+        if (index == 1) return const SizedBox(height: 8);
+        if (entries.isEmpty) {
+          return const EmptyState(text: 'No transactions in this period');
+        }
+        final group = groupEntries[index - 2];
+        return Card(
+          // margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
                 // padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -389,10 +399,65 @@ class _EntriesPageState extends State<EntriesPage> {
                     ),
                   ],
                 ),
-              ),
-            ),
           ),
-      ],
+        );
+      },
     );
   }
+}
+
+class _TransactionSummary extends StatelessWidget {
+  const _TransactionSummary({
+    required this.income,
+    required this.expense,
+    required this.netBalance,
+  });
+
+  final double income;
+  final double expense;
+  final double netBalance;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Row(
+        children: [
+          Expanded(child: _SummaryItem('Income', income, Colors.green)),
+          Expanded(child: _SummaryItem('Expense', expense, Colors.red)),
+          Expanded(
+            child: _SummaryItem(
+              'Net balance',
+              netBalance,
+              netBalance >= 0 ? Colors.blue : Colors.deepOrange,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _SummaryItem extends StatelessWidget {
+  const _SummaryItem(this.label, this.amount, this.color);
+  final String label;
+  final double amount;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 4),
+      FittedBox(
+        alignment: Alignment.centerLeft,
+        fit: BoxFit.scaleDown,
+        child: Text(
+          formatMoney(amount),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ),
+    ],
+  );
 }

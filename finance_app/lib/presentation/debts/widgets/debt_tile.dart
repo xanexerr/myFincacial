@@ -24,7 +24,9 @@ class DebtTile extends StatelessWidget {
       leading: Icon(archived ? Icons.inventory_2_outlined : Icons.receipt_long),
       title: Text(debt.name),
       subtitle: Text(
-        debt.totalMonths == 0
+        debt.isPaidOff
+            ? 'Complete'
+            : debt.totalMonths == 0
             ? 'No payment schedule'
             : '${debt.payments.length}/${debt.totalMonths} months · ${formatMoney(debt.remainingBalance)} remaining',
       ),

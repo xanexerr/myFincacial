@@ -66,33 +66,107 @@ class _DashboardPageState extends State<DashboardPage> {
     ),
   );
 
-  Widget _periodButton(DashboardPeriod value, String label, Color color) {
-    final selected = period == value;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: () => setState(() => period = value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          width: 40,
-          height: 40,
+  void changePeriod(DashboardPeriod value) {
+    setState(() {
+      period = value;
+    });
+  }
+
+  Widget _periodButton() {
+    return Container(
+      height: 58,
+      width: 58,
+      padding: EdgeInsets.zero,
+      decoration: BoxDecoration(
+        color: const Color(0xff503c74),
+        borderRadius: BorderRadius.circular(29),
+      ),
+      child: MenuAnchor(
+        alignmentOffset: const Offset(0, -58),
+        style: MenuStyle(
+          backgroundColor: const WidgetStatePropertyAll(Color(0xff241326)),
+          minimumSize: const WidgetStatePropertyAll(Size(58, 0)),
+          maximumSize: const WidgetStatePropertyAll(Size(58, double.infinity)),
+          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+          elevation: const WidgetStatePropertyAll(0),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          ),
+        ),
+        menuChildren: [
+          _periodMenuItem(DashboardPeriod.week, 'W'),
+          _periodMenuItem(DashboardPeriod.month, 'M'),
+          _periodMenuItem(DashboardPeriod.year, 'Y'),
+        ],
+        builder:
+            (context, controller, child) => GestureDetector(
+              onTap: () {
+                if (controller.isOpen) {
+                  controller.close();
+                } else {
+                  controller.open();
+                }
+              },
+              child: Center(
+                child: Text(
+                  period == DashboardPeriod.week
+                      ? 'W'
+                      : period == DashboardPeriod.month
+                      ? 'M'
+                      : 'Y',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+      ),
+    );
+  }
+
+  Widget _periodMenuItem(DashboardPeriod value, String label) => MenuItemButton(
+    onPressed: () => changePeriod(value),
+    style: const ButtonStyle(
+      padding: WidgetStatePropertyAll(EdgeInsets.zero),
+      minimumSize: WidgetStatePropertyAll(Size(58, 58)),
+      maximumSize: WidgetStatePropertyAll(Size(58, 58)),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
+    child: SizedBox(
+      width: 58,
+      height: 58,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        builder:
+            (context, value, child) => Opacity(
+              opacity: value,
+              child: Transform.translate(
+                offset: Offset(0, (1 - value) * -12),
+                child: child,
+              ),
+            ),
+        child: Container(
           alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: selected ? color : color.withValues(alpha: .18),
+          decoration: const BoxDecoration(
+            color: Color(0xff503c74),
+            // border: Border(bottom: BorderSide(color: Color(0x99ffffff))),
           ),
           child: Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: selected ? Colors.white : color,
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -126,26 +200,7 @@ class _DashboardPageState extends State<DashboardPage> {
             padding: const EdgeInsets.all(8),
             child: Row(
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _periodButton(
-                      DashboardPeriod.year,
-                      'Y',
-                      const Color(0xff7050a5),
-                    ),
-                    _periodButton(
-                      DashboardPeriod.month,
-                      'M',
-                      const Color(0xff7050a5),
-                    ),
-                    _periodButton(
-                      DashboardPeriod.week,
-                      'W',
-                      const Color(0xff7050a5),
-                    ),
-                  ],
-                ),
+                _periodButton(),
                 const SizedBox(width: 2),
                 Expanded(
                   child: PeriodPicker(
@@ -215,15 +270,15 @@ class _DashboardPageState extends State<DashboardPage> {
                               .surfaceContainerHighest
                               .withValues(alpha: .45),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
                             borderSide: BorderSide.none,
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
                             borderSide: BorderSide.none,
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
                             borderSide: BorderSide(
                               color: Theme.of(context).colorScheme.primary,
                               width: 2,
@@ -231,6 +286,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           ),
                         ),
                         dropdownColor: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(AppRadius.md),
                         icon: const Icon(Icons.keyboard_arrow_down),
                         items: const [
                           DropdownMenuItem(
